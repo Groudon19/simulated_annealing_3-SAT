@@ -36,6 +36,7 @@ class SimulatedAnnealing:
         SAmax, 
         initial_temperature_T0,
         final_temperature_TN,
+        N_iterations,
         flip_probability=0.05
         ):
         
@@ -45,6 +46,7 @@ class SimulatedAnnealing:
         self.num_vars = num_vars
         self.clauses = clauses
         self.flip_probability = flip_probability
+        self.N_iterations = N_iterations
         
         self.alpha = alpha
         
@@ -95,7 +97,42 @@ class SimulatedAnnealing:
                 
         return unsatisfied_count
         
-    def solve(self):
+    def get_temperature_0(self, i, A, B):
+        return self.initial_temperature_T0 - i * ((self.initial_temperature_T0 - self.final_temperature_TN) / self.N_iterations)
+    
+    def get_temperature_1(self, i, A, B):
+        return self.initial_temperature_T0 * (self.final_temperature_TN / self.initial_temperature_T0) ** (i / self.N_iterations)
+    
+    def get_temperature_2(self, i, A, B):
+        return (A / (i + 1)) + B
+    
+    def get_temperature_3(self, i, A, B):
+        return self.initial_temperature_T0 - i ** A
+        
+    def get_temperature_4(self, i, A, B):
+        progress = i / self.N_iterations
+        start = 1 / (1 + math.exp(-1.5))
+        end = 1 / (1 + math.exp(1.5))
+        value = 1 / (1 + math.exp(3 * (progress - 0.5)))
+        scale = (value - end) / (start - end)
+        return self.final_temperature_TN + (self.initial_temperature_T0 - self.final_temperature_TN) * scale
+        
+    def get_temperature_5(self, i, A, B):
+        return (1/2) * (self.initial_temperature_T0 - self.final_temperature_TN) * (1 + math.cos(i * math.pi / self.N_iterations)) + self.final_temperature_TN
+        
+    def get_temperature_6(self, i, A, B):
+        return (1/2) * (self.initial_temperature_T0 - self.final_temperature_TN) * (1 - math.tanh((10 * i / self.N_iterations) - 5)) + self.final_temperature_TN
+        
+    def get_temperature_7(self, i, A, B):
+        return ((self.initial_temperature_T0 - self.final_temperature_TN) / (math.cosh((10 * i) / self.N_iterations))) + self.final_temperature_TN
+        
+    def get_temperature_8(self, i, A, B):
+        return self.initial_temperature_T0 * math.exp(-A * i)
+        
+    def get_temperature_9(self, i, A, B):
+        return self.initial_temperature_T0 * math.exp(-A * i ** 2)
+    
+    def solve(self, get_temperature, A, B):
         
         current_solution = self.generate_initial_solution(self.num_vars)
         current_objective_value = self.evaluate_objective_function(current_solution)
@@ -105,7 +142,9 @@ class SimulatedAnnealing:
         
         current_temperature = self.initial_temperature_T0
         
-        while current_temperature > self.final_temperature_TN:
+        for i in range(self.N_iterations):
+            current_temperature = get_temperature(i, A, B)
+            
             for _ in range(self.SAmax):
                 neighbor_solution = self.generate_neighbor(current_solution)
                 neighbor_objective_value = self.evaluate_objective_function(neighbor_solution)
@@ -123,8 +162,7 @@ class SimulatedAnnealing:
                     if random.random() < math.exp(-delta / current_temperature):
                         current_solution = neighbor_solution
                         current_objective_value = neighbor_objective_value
-        
-            current_temperature *= self.alpha
+
             
         return best_solution, best_objective_value
         

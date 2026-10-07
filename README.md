@@ -1,1 +1,1 @@
-# Simmulated Annealing to solve 3-SAT
+# Simulated Annealing to solve 3-SAT

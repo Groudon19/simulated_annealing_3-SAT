@@ -1,6 +1,7 @@
 import sys
 import simulated_annealing
 import math
+import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     
@@ -16,11 +17,10 @@ if __name__ == "__main__":
     sa = simulated_annealing.SimulatedAnnealing(
         num_vars=num_vars,
         clauses=clauses,
-        alpha=0.95,
         SAmax=1,
         initial_temperature_T0=100,
         final_temperature_TN=0.0001,
-        N_iterations=200000,
+        N_iterations=2000000,
         flip_probability=0.05
     )
     
@@ -30,7 +30,19 @@ if __name__ == "__main__":
     A8 = (1 / sa.N_iterations) * math.log(sa.initial_temperature_T0 / sa.final_temperature_TN)
     A9 = (1 / (sa.N_iterations ** 2)) * math.log(sa.initial_temperature_T0 / sa.final_temperature_TN)
     
-    best_solution, best_objective_value = sa.solve(sa.get_temperature_8, A8, B2)
+    best_solution, best_objective_value, history, history_best = sa.solve(sa.get_temperature_2, A2, B2)
     
     print("Best solution found:", best_solution)
-    print("Number of unsatisfied clauses:", best_objective_value) 
+    print("Number of unsatisfied clauses:", best_objective_value)
+    
+    false_clause_ratio = [objective_value / len(clauses) for objective_value in history]
+    false_clause_ratio_best = [best_objective_value / len(clauses) for best_objective_value in history_best]
+    iterations = range(len(history))
+
+    plt.plot(iterations, false_clause_ratio)
+    plt.plot(iterations, false_clause_ratio_best)
+    plt.xlabel("Iteration")
+    plt.ylabel("False clauses / total clauses")
+    plt.ylim(0, 0.3)
+    plt.grid(True)
+    plt.show()

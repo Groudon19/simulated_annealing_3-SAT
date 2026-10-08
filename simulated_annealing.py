@@ -32,7 +32,6 @@ class SimulatedAnnealing:
         self,
         num_vars,
         clauses,
-        alpha, 
         SAmax, 
         initial_temperature_T0,
         final_temperature_TN,
@@ -48,7 +47,8 @@ class SimulatedAnnealing:
         self.flip_probability = flip_probability
         self.N_iterations = N_iterations
         
-        self.alpha = alpha
+        self.history = []
+        self.history_best = []
         
     def generate_initial_solution(self, num_vars):
         return [random.choice([0, 1]) for _ in range(num_vars)]
@@ -133,17 +133,26 @@ class SimulatedAnnealing:
         return self.initial_temperature_T0 * math.exp(-A * i ** 2)
     
     def solve(self, get_temperature, A, B):
+        self.history = []
+        self.history_best = []
         
         current_solution = self.generate_initial_solution(self.num_vars)
         current_objective_value = self.evaluate_objective_function(current_solution)
         
+        self.history.append(current_objective_value)
+        
         best_solution = current_solution.copy()
         best_objective_value = current_objective_value
+        
+        self.history_best.append(best_objective_value)
         
         current_temperature = self.initial_temperature_T0
         
         for i in range(self.N_iterations):
             current_temperature = get_temperature(i, A, B)
+            
+            self.history.append(current_objective_value)
+            self.history_best.append(best_objective_value)
             
             for _ in range(self.SAmax):
                 neighbor_solution = self.generate_neighbor(current_solution)
@@ -164,6 +173,6 @@ class SimulatedAnnealing:
                         current_objective_value = neighbor_objective_value
 
             
-        return best_solution, best_objective_value
+        return best_solution, best_objective_value, self.history, self.history_best
         
         

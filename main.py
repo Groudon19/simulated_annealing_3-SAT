@@ -20,17 +20,12 @@ if __name__ == "__main__":
         SAmax=1,
         initial_temperature_T0=100,
         final_temperature_TN=0.0001,
-        N_iterations=2000000,
+        eval_max=200000,
         flip_probability=0.05
     )
     
-    A2 = ((sa.initial_temperature_T0 - sa.final_temperature_TN) * (sa.N_iterations + 1)) / sa.N_iterations
-    B2 = sa.initial_temperature_T0 - A2
-    A3 = (math.log(sa.initial_temperature_T0 - sa.final_temperature_TN)) / (math.log(sa.N_iterations))
-    A8 = (1 / sa.N_iterations) * math.log(sa.initial_temperature_T0 / sa.final_temperature_TN)
-    A9 = (1 / (sa.N_iterations ** 2)) * math.log(sa.initial_temperature_T0 / sa.final_temperature_TN)
-    
-    best_solution, best_objective_value, history, history_best = sa.solve(sa.get_temperature_2, A2, B2)
+    # O número de input da função solve é o número do método get_temperature utilizado.
+    best_solution, best_objective_value, history, history_best = sa.solve(9)
     
     print("Best solution found:", best_solution)
     print("Number of unsatisfied clauses:", best_objective_value)

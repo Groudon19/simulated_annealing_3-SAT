@@ -35,8 +35,8 @@ class SimulatedAnnealing:
         SAmax, 
         initial_temperature_T0,
         final_temperature_TN,
-        N_iterations,
-        flip_probability=0.05
+        eval_max,
+        flip_probability
         ):
         
         self.SAmax = SAmax
@@ -45,7 +45,9 @@ class SimulatedAnnealing:
         self.num_vars = num_vars
         self.clauses = clauses
         self.flip_probability = flip_probability
-        self.N_iterations = N_iterations
+        self.eval_max = eval_max
+        
+        self.N_iterations = max(1, self.eval_max // self.SAmax)    
         
         self.history = []
         self.history_best = []
@@ -132,7 +134,23 @@ class SimulatedAnnealing:
     def get_temperature_9(self, i, A, B):
         return self.initial_temperature_T0 * math.exp(-A * i ** 2)
     
-    def solve(self, get_temperature, A, B):
+    def get_cooling_parameters(self, schedule_number):
+        T0, TN, N = self.initial_temperature_T0, self.final_temperature_TN, self.N_iterations
+        if schedule_number == 2:
+            A = (T0 - TN) * (N -1) / N
+            return A, T0 - A
+        if schedule_number == 3:
+            return math.log(T0 - TN) / math.log(N), 0
+        if schedule_number == 8:
+            return math.log(T0 / TN) / N, 0
+        if schedule_number == 9:
+            return math.log(T0 / TN) / N**2, 0
+        return 0, 0
+    
+    def solve(self, cooling_schedule):
+        get_temperature = getattr(self, f"get_temperature_{cooling_schedule}")
+        A, B = self.get_cooling_parameters(cooling_schedule)
+        
         self.history = []
         self.history_best = []
         
@@ -151,26 +169,22 @@ class SimulatedAnnealing:
         for i in range(self.N_iterations):
             current_temperature = get_temperature(i, A, B)
             
-            self.history.append(current_objective_value)
-            self.history_best.append(best_objective_value)
-            
             for _ in range(self.SAmax):
                 neighbor_solution = self.generate_neighbor(current_solution)
                 neighbor_objective_value = self.evaluate_objective_function(neighbor_solution)
                 
                 delta = neighbor_objective_value - current_objective_value
                 
-                if delta < 0:
+                if delta < 0 or random.random() < math.exp(-delta / current_temperature):
                     current_solution = neighbor_solution
                     current_objective_value = neighbor_objective_value
                     
                     if neighbor_objective_value < best_objective_value:
                         best_solution = neighbor_solution
                         best_objective_value = neighbor_objective_value
-                else:
-                    if random.random() < math.exp(-delta / current_temperature):
-                        current_solution = neighbor_solution
-                        current_objective_value = neighbor_objective_value
+                
+                self.history.append(current_objective_value)
+                self.history_best.append(best_objective_value)
 
             
         return best_solution, best_objective_value, self.history, self.history_best

@@ -55,6 +55,10 @@ class SimulatedAnnealing:
                 is_positive = var > 0
                 self.var_to_clauses[abs(var) - 1].append((clause_idx, is_positive))
         
+        # Fixamos o número de flips em num_vars*flip_probability, para melhorar eficiência, 
+        # ao invés de percorrer toda a solução e decidir aleatoriamente se vai flipar ou não
+        self.base_flips = max(1, int(self.flip_probability * self.num_vars))
+        
         self.history = []
         self.history_best = []
         
@@ -89,11 +93,8 @@ class SimulatedAnnealing:
     #     return neighbor
     
     def generate_flip_indices(self):
-        # Fixamos o número de flips em num_vars*flip_probability, para melhorar eficiência, 
-        # ao invés de percorrer toda a solução e decidir aleatoriamente se vai flipar ou não
-        num_flips = max(1, int(self.flip_probability * self.num_vars))
         # Trás uma variação para o número de flips, com o objetivo de explorar distâncias de Hamming ímpares
-        num_flips = num_flips + random.choice([-1, 0])
+        num_flips = self.base_flips + random.choice([-1, 0])
         num_flips = min(max(num_flips, 1), self.num_vars)
         
         return random.sample(range(self.num_vars), num_flips)
@@ -207,18 +208,20 @@ class SimulatedAnnealing:
         get_temperature = getattr(self, f"get_temperature_{cooling_schedule}")
         A, B = self.get_cooling_parameters(cooling_schedule)
         
-        self.history = []
-        self.history_best = []
+        self.history = [0] * (self.eval_max + 1)
+        self.history_best = [0] * (self.eval_max + 1)
         
         current_solution = self.generate_initial_solution(self.num_vars)
         true_counts, current_objective_value = self.compute_true_counts(current_solution)
                 
-        self.history.append(current_objective_value)
+        self.history[0] = current_objective_value
         
         best_solution = current_solution.copy()
         best_objective_value = current_objective_value
         
-        self.history_best.append(best_objective_value)
+        self.history_best[0] = best_objective_value
+        
+        history_idx = 1
         
         for i in range(self.N_iterations):
             current_temperature = get_temperature(i, A, B)
@@ -242,8 +245,9 @@ class SimulatedAnnealing:
                     for var in idxs_to_flip:
                         self.flip(current_solution, true_counts, var, neighbor_objective_value)
                 
-                self.history.append(current_objective_value)
-                self.history_best.append(best_objective_value)
+                self.history[history_idx] = current_objective_value
+                self.history_best[history_idx] = best_objective_value
+                history_idx += 1
 
         assert self.evaluate_objective_function(best_solution) == best_objective_value
             

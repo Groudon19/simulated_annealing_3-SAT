@@ -1,5 +1,6 @@
 import sys
 import simulated_annealing
+import time
 import math
 import matplotlib.pyplot as plt
 
@@ -12,6 +13,8 @@ if __name__ == "__main__":
         
     file_path = sys.argv[1]
     
+    start_time = time.perf_counter()
+    
     num_vars, clauses = simulated_annealing.parse_input_file(file_path)
     
     sa = simulated_annealing.SimulatedAnnealing(
@@ -20,12 +23,16 @@ if __name__ == "__main__":
         SAmax=1,
         initial_temperature_T0=100,
         final_temperature_TN=0.0001,
-        eval_max=200000,
+        eval_max=2000000,
         flip_probability=0.05
     )
     
     # O número de input da função solve é o número do método get_temperature utilizado.
-    best_solution, best_objective_value, history, history_best = sa.solve(9)
+    best_solution, best_objective_value, history, history_best = sa.solve(8)
+    
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"Execution time: {elapsed_time}")
     
     print("Best solution found:", best_solution)
     print("Number of unsatisfied clauses:", best_objective_value)

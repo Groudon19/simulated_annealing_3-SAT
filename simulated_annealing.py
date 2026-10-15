@@ -47,7 +47,17 @@ class SimulatedAnnealing:
         self.flip_probability = flip_probability
         self.eval_max = eval_max
         
-        self.N_iterations = max(1, self.eval_max // self.SAmax)    
+        self.N_iterations = max(1, self.eval_max // self.SAmax) 
+        
+        self.var_to_clauses = [[] for _ in range(num_vars)]
+        for clause_idx, clause in enumerate(clauses):
+            for var in clause:
+                is_positive = var > 0
+                self.var_to_clauses[abs(var) - 1].append((clause_idx, is_positive))
+        
+        # Fixamos o número de flips em num_vars*flip_probability, para melhorar eficiência, 
+        # ao invés de percorrer toda a solução e decidir aleatoriamente se vai flipar ou não
+        self.base_flips = max(1, int(self.flip_probability * self.num_vars))
         
         self.history = []
         self.history_best = []
@@ -65,18 +75,29 @@ class SimulatedAnnealing:
                 
     #     return neighbor
     
-    def generate_neighbor(self, solution):
-        neighbor = solution.copy()
+    # def generate_neighbor(self, solution):
+    #     neighbor = solution.copy()
         
-        # Fixamos o número de flips em num_vars*flip_probability, para melhorar eficiência, 
-        # ao invés de percorrer toda a solução e decidir aleatoriamente se vai flipar ou não
-        num_flips = max(1, int(self.flip_probability * self.num_vars))
-        idxs_to_flip = random.sample(range(self.num_vars), num_flips)
+    #     # Fixamos o número de flips em num_vars*flip_probability, para melhorar eficiência, 
+    #     # ao invés de percorrer toda a solução e decidir aleatoriamente se vai flipar ou não
+    #     num_flips = max(1, int(self.flip_probability * self.num_vars))
+    #     # Trás uma variação para o número de flips, com o objetivo de explorar distâncias de Hamming ímpares
+    #     num_flips = num_flips + random.choice([-1, 0])
+    #     num_flips = min(max(num_flips, 1), self.num_vars)
         
-        for idx in idxs_to_flip:
-            neighbor[idx] = 1 - neighbor[idx]
+    #     idxs_to_flip = random.sample(range(self.num_vars), num_flips)
+        
+    #     for idx in idxs_to_flip:
+    #         neighbor[idx] = 1 - neighbor[idx]
             
-        return neighbor
+    #     return neighbor
+    
+    def generate_flip_indices(self):
+        # Trás uma variação para o número de flips, com o objetivo de explorar distâncias de Hamming ímpares
+        num_flips = self.base_flips + random.choice([-1, 0])
+        num_flips = min(max(num_flips, 1), self.num_vars)
+        
+        return random.sample(range(self.num_vars), num_flips)
        
     def evaluate_objective_function(self, solution):
         unsatisfied_count = 0
@@ -97,6 +118,42 @@ class SimulatedAnnealing:
             if not satisfied:
                 unsatisfied_count += 1
                 
+        return unsatisfied_count
+    
+    def compute_true_counts(self, solution):
+        true_counts = [0] * len(self.clauses)
+        unsatisfied_count = 0
+        
+        for clause_idx, clause in enumerate(self.clauses):
+            count = 0
+            for var in clause:
+                if (var > 0) == (solution[abs(var) - 1] == 1):
+                    count += 1
+            true_counts[clause_idx] = count
+            if count == 0:
+                unsatisfied_count += 1
+                
+        return true_counts, unsatisfied_count
+    
+    def flip(self, solution, true_counts, var, unsatisfied_count):
+        
+        was_true = solution[var] == 1
+        
+        for clause_idx, is_positive in self.var_to_clauses[var]:
+            if is_positive == was_true:
+                # Era verdadeira, agr virou falsa
+                true_counts[clause_idx] -= 1
+                if true_counts[clause_idx] == 0:
+                    unsatisfied_count += 1
+            
+            else:
+                # Era false, agr virou verdadeira
+                if true_counts[clause_idx] == 0:
+                    unsatisfied_count -= 1
+                true_counts[clause_idx] += 1
+                                    
+        solution[var] = 1 - solution[var]
+        
         return unsatisfied_count
         
     def get_temperature_0(self, i, A, B):
@@ -137,7 +194,7 @@ class SimulatedAnnealing:
     def get_cooling_parameters(self, schedule_number):
         T0, TN, N = self.initial_temperature_T0, self.final_temperature_TN, self.N_iterations
         if schedule_number == 2:
-            A = (T0 - TN) * (N -1) / N
+            A = (T0 - TN) * (N + 1) / N
             return A, T0 - A
         if schedule_number == 3:
             return math.log(T0 - TN) / math.log(N), 0
@@ -151,41 +208,48 @@ class SimulatedAnnealing:
         get_temperature = getattr(self, f"get_temperature_{cooling_schedule}")
         A, B = self.get_cooling_parameters(cooling_schedule)
         
-        self.history = []
-        self.history_best = []
+        self.history = [0] * (self.eval_max + 1)
+        self.history_best = [0] * (self.eval_max + 1)
         
         current_solution = self.generate_initial_solution(self.num_vars)
-        current_objective_value = self.evaluate_objective_function(current_solution)
-        
-        self.history.append(current_objective_value)
+        true_counts, current_objective_value = self.compute_true_counts(current_solution)
+                
+        self.history[0] = current_objective_value
         
         best_solution = current_solution.copy()
         best_objective_value = current_objective_value
         
-        self.history_best.append(best_objective_value)
+        self.history_best[0] = best_objective_value
         
-        current_temperature = self.initial_temperature_T0
+        history_idx = 1
         
         for i in range(self.N_iterations):
             current_temperature = get_temperature(i, A, B)
             
             for _ in range(self.SAmax):
-                neighbor_solution = self.generate_neighbor(current_solution)
-                neighbor_objective_value = self.evaluate_objective_function(neighbor_solution)
+                idxs_to_flip = self.generate_flip_indices()
+                neighbor_objective_value = current_objective_value
+                for var in idxs_to_flip:
+                    neighbor_objective_value = self.flip(current_solution, true_counts, var, neighbor_objective_value)
                 
                 delta = neighbor_objective_value - current_objective_value
                 
                 if delta < 0 or random.random() < math.exp(-delta / current_temperature):
-                    current_solution = neighbor_solution
                     current_objective_value = neighbor_objective_value
                     
-                    if neighbor_objective_value < best_objective_value:
-                        best_solution = neighbor_solution
-                        best_objective_value = neighbor_objective_value
+                    if current_objective_value < best_objective_value:
+                        best_solution = current_solution.copy()
+                        best_objective_value = current_objective_value
+                        
+                else:
+                    for var in idxs_to_flip:
+                        self.flip(current_solution, true_counts, var, neighbor_objective_value)
                 
-                self.history.append(current_objective_value)
-                self.history_best.append(best_objective_value)
+                self.history[history_idx] = current_objective_value
+                self.history_best[history_idx] = best_objective_value
+                history_idx += 1
 
+        assert self.evaluate_objective_function(best_solution) == best_objective_value
             
         return best_solution, best_objective_value, self.history, self.history_best
         

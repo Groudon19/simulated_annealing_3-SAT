@@ -94,7 +94,7 @@ class SimulatedAnnealing:
     
     def generate_flip_indices(self):
         # Trás uma variação para o número de flips, com o objetivo de explorar distâncias de Hamming ímpares
-        num_flips = self.base_flips + random.choice([-1, 0])
+        num_flips = self.base_flips + random.choice([0, 1])
         num_flips = min(max(num_flips, 1), self.num_vars)
         
         return random.sample(range(self.num_vars), num_flips)

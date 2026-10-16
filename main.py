@@ -1,50 +1,33 @@
 import sys
-import simulated_annealing
-import time
-import math
-import matplotlib.pyplot as plt
+import argparse
+from tester import run_tests
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Executa os testes do Simulated Annealing para 3-SAT.")
+    
+    parser.add_argument("file_path", type=str, help="Caminho para o arquivo da instância (.cnf)")
+    parser.add_argument("--schedule1", type=int, default=7, help="Número do primeiro esquema de resfriamento (padrão: 1)")
+    parser.add_argument("--schedule2", type=int, default=8, help="Número do segundo esquema de resfriamento (padrão: 8)")
+    parser.add_argument("--t0", type=float, default=100.0, help="Temperatura inicial T0 (padrão: 100.0)")
+    parser.add_argument("--tn", type=float, default=0.0001, help="Temperatura final TN (padrão: 0.0001)")
+    parser.add_argument("--flip_prob", type=float, default=0.01, help="Probabilidade de flip de bits (padrão: 0.05)")
+    parser.add_argument("--eval_max", type=int, default=2000000, help="Número máximo de avaliações de FO (padrão: 200000)")
+    parser.add_argument("--num_runs", type=int, default=10, help="Número de execuções por configuração (padrão: 10)")
+
+    args = parser.parse_args()
+
+    run_tests(
+        file_path=args.file_path,
+        schedule1=args.schedule1,
+        schedule2=args.schedule2,
+        T0=args.t0,
+        TN=args.tn,
+        flip_probability=args.flip_prob,
+        eval_max=args.eval_max,
+        num_runs=args.num_runs
+    )
+
 
 if __name__ == "__main__":
-    
-    if len(sys.argv) < 2:
-        print('Usage: python main.py <file_path>')
-        print('Example: python main.py instance.cnf')
-        sys.exit(1)
-        
-    file_path = sys.argv[1]
-    
-    start_time = time.perf_counter()
-    
-    num_vars, clauses = simulated_annealing.parse_input_file(file_path)
-    
-    sa = simulated_annealing.SimulatedAnnealing(
-        num_vars=num_vars,
-        clauses=clauses,
-        SAmax=1,
-        initial_temperature_T0=100,
-        final_temperature_TN=0.0001,
-        eval_max=2000000,
-        flip_probability=0.05
-    )
-    
-    # O número de input da função solve é o número do método get_temperature utilizado.
-    best_solution, best_objective_value, history, history_best = sa.solve(8)
-    
-    end_time = time.perf_counter()
-    elapsed_time = end_time - start_time
-    print(f"Execution time: {elapsed_time}")
-    
-    print("Best solution found:", best_solution)
-    print("Number of unsatisfied clauses:", best_objective_value)
-    
-    false_clause_ratio = [objective_value / len(clauses) for objective_value in history]
-    false_clause_ratio_best = [best_objective_value / len(clauses) for best_objective_value in history_best]
-    iterations = range(len(history))
-
-    plt.plot(iterations, false_clause_ratio)
-    plt.plot(iterations, false_clause_ratio_best)
-    plt.xlabel("Iteration")
-    plt.ylabel("False clauses / total clauses")
-    plt.ylim(0, 0.3)
-    plt.grid(True)
-    plt.show()
+    main()
